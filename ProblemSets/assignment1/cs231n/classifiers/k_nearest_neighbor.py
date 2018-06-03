@@ -95,7 +95,9 @@ class KNearestNeighbor(object):
             # Compute the l2 distance between the ith test point and all training #
             # points, and store the result in dists[i, :].                        #
             #######################################################################
-            dists[i] = np.sqrt(np.sum((self.X_train - X[i]) ** 2, axis=1))
+            dists[i, :] = np.sqrt(np.sum((self.X_train - X[i]) ** 2, axis=1))
+            # Why is this so much slower?
+            #dists[i, :] = np.linalg.norm(self.X_train - X[i], axis=-1)
             #######################################################################
             #                         END OF YOUR CODE                            #
             #######################################################################
@@ -166,7 +168,7 @@ class KNearestNeighbor(object):
             # Store this label in y_pred[i]. Break ties by choosing the smaller     #
             # label.                                                                #
             #########################################################################
-            y_pred[i] = stats.mode(closest_y)[0]
+            y_pred[i] = stats.mode(closest_y, axis=None)[0]
             #########################################################################
             #                           END OF YOUR CODE                            #
             #########################################################################
