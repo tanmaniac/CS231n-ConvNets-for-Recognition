@@ -191,12 +191,16 @@ class FullyConnectedNet(object):
         # Initially the number of columns in the input matrix X
         prev_layer_cols = input_dim
         layer_cols_list = hidden_dims + [num_classes]
-        print(layer_cols_list)
+        #print(layer_cols_list, len(layer_cols_list))
         idx = 1
         for layer_cols in layer_cols_list:
             self.params['W' + str(idx)] = weight_scale * \
                 np.random.randn(prev_layer_cols, layer_cols)
             self.params['b' + str(idx)] = np.zeros(layer_cols)
+            if use_batchnorm and idx < len(layer_cols_list):
+                self.params['gamma' + str(idx)] = np.ones(layer_cols)
+                self.params['beta' + str(idx)] = np.zeros(layer_cols)
+                #print('init: gamma%i, beta%i' % (idx, idx))
 
             # Update previous layer size
             prev_layer_cols = layer_cols
@@ -271,11 +275,25 @@ class FullyConnectedNet(object):
 
             last_X = layer_ys[layer_name]
 
-            # Only do the ReLU layer if this is not the last layer
+            # Only do the batchnorm and ReLU layer if this is not the last layer
             if layer_num != self.num_layers:
+                if self.use_batchnorm:
+                    layer_name = 'batchnorm' + str(layer_num)
+                    layer_ys[layer_name], caches[layer_name] = batchnorm_forward(
+                        last_X, self.params['gamma' + str(layer_num)],
+                        self.params['beta' + str(layer_num)], self.bn_params[layer_num - 1])
+                    last_X = layer_ys[layer_name]
+
                 layer_name = 'relu' + str(layer_num)
                 layer_ys[layer_name], caches[layer_name] = relu_forward(last_X)
                 last_X = layer_ys[layer_name]
+
+                # If necessary, add a dropout layer after each ReLU layer
+                if self.use_dropout:
+                    layer_name = 'dropout' + str(layer_num)
+                    layer_ys[layer_name], caches[layer_name] = dropout_forward(
+                        last_X, self.dropout_param)
+                    last_X = layer_ys[layer_name]
             else:
                 # This is the last layer, so the scores are the output
                 scores = last_X
@@ -313,10 +331,22 @@ class FullyConnectedNet(object):
 
         # Iterate backwards over the layers and compute gradients
         for layer_num in range(self.num_layers, 0, -1):
-            # If this is not the last layer before the softmax layer, then we need to compute the gradient of ReLU first
+            # If this is not the last layer before the softmax layer, then we need to compute the gradients of dropout, ReLU, and batch norm layers
             if layer_num != self.num_layers:
+                if self.use_dropout:
+                    dscores = dropout_backward(
+                        dscores, caches['dropout' + str(layer_num)])
+
                 dscores = relu_backward(
                     dscores, caches['relu' + str(layer_num)])
+
+                if self.use_batchnorm:
+                    # We also need to compute the batchnorm backprop
+                    dscores, dgamma, dbeta = batchnorm_backward_alt(
+                        dscores, caches['batchnorm' + str(layer_num)])
+                    grads['gamma' + str(layer_num)] = dgamma
+                    grads['beta' + str(layer_num)] = dbeta
+                    #print('gamma%i, beta%i' % (layer_num, layer_num))
 
             dscores, dw, db = affine_backward(
                 dscores, caches['affine' + str(layer_num)])
