@@ -148,6 +148,8 @@ class CaptioningRNN(object):
         # Vanilla RNN
         if self.cell_type == 'rnn':
             states, caches = rnn_forward(cin_embed, h0, Wx, Wh, b)
+        else:
+            states, caches = lstm_forward(cin_embed, h0, Wx, Wh, b)
 
         scores, scores_cache = temporal_affine_forward(
             states, W_vocab, b_vocab)
@@ -164,6 +166,9 @@ class CaptioningRNN(object):
         dx, dh0 = None, None
         if self.cell_type == 'rnn':
             dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(
+                dstates, caches)
+        else:
+            dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(
                 dstates, caches)
 
         # Backprop through word embedding layer
@@ -238,8 +243,13 @@ class CaptioningRNN(object):
 
         # Iterate through the RNN
         h_t = h0
+        c_t = np.zeros_like(h0)
         for t in range(max_length):
-            h_t, _ = rnn_step_forward(cap_embed, h_t, Wx, Wh, b)
+            if self.cell_type == 'rnn':
+                h_t, _ = rnn_step_forward(cap_embed, h_t, Wx, Wh, b)
+            else:
+                h_t, c_t, _ = lstm_step_forward(cap_embed, h_t, c_t, Wx, Wh, b)
+
             o_t = h_t[:, np.newaxis, :]
             y_t, _ = temporal_affine_forward(o_t, W_vocab, b_vocab)
             y_t = np.squeeze(y_t)
