@@ -17,6 +17,7 @@ if [ ! "$(docker ps -q -f name=${CONTAINER_NAME})" ]; then
     -p 8888:8888 -p 6006:6006 \
     -v $(pwd)/../assignment1:/home/$(id -un)/assignment1 \
     -v $(pwd)/../assignment2:/home/$(id -un)/assignment2 \
+    -v $(pwd)/../assignment3:/home/$(id -un)/assignment3 \
     ${REPO}/${IMAGE}:${TAG} \
     /bin/bash
 fi
